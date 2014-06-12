@@ -631,6 +631,9 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
             if field_class.boost != 1.0:
                 field_mapping['boost'] = field_class.boost
 
+            if field_class.analyzer is not None:
+                field_mapping['analyzer'] = field_class.analyzer
+
             if field_class.document is True:
                 content_field_name = field_class.index_fieldname
 
