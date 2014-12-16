@@ -134,7 +134,8 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
             try:
                 # Make sure the index is there first.
                 self.conn.indices.create(self.index_name, self.DEFAULT_SETTINGS)
-                self.conn.indices.put_mapping(index=self.index_name, doc_type='modelresult', body=current_mapping)
+                self.conn.indices.put_mapping(
+                    index=self.index_name, doc_type='modelresult', body=current_mapping)
                 self.existing_mapping = current_mapping
             except Exception:
                 if not self.silently_fail:
@@ -462,6 +463,12 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
             else:
                 kwargs['query']['filtered']["filter"] = {"bool": {"must": filters}}
 
+        # from json import dumps
+        from pprint import pprint
+        print '-'*80
+        # print dumps(kwargs, indent=4)
+        pprint(kwargs)
+        print '-'*80
         return kwargs
 
     @log_query
@@ -491,9 +498,15 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
             search_kwargs['size'] = end_offset - start_offset
 
         try:
+            # import pprint
+            # pprint.pprint(search_kwargs)
+            from time import time
+            start = time()
             raw_results = self.conn.search(body=search_kwargs,
                                            index=self.index_name,
                                            doc_type='modelresult')
+            print "took", (time() - start) * 1000, 'milliseconds'
+            # import traceback; traceback.print_stack()
         except elasticsearch.TransportError as e:
             if not self.silently_fail:
                 raise
@@ -590,7 +603,11 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
                     string_key = str(key)
 
                     if string_key in index.fields and hasattr(index.fields[string_key], 'convert'):
-                        additional_fields[string_key] = index.fields[string_key].convert(value)
+                        try:
+                            additional_fields[string_key] = index.fields[string_key].convert(value)
+                        except:
+                            pass
+                            # import ipdb; ipdb.set_trace()
                     else:
                         additional_fields[string_key] = self._to_python(value)
 
