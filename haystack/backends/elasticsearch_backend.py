@@ -407,16 +407,19 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
             filters.append({"terms": {DJANGO_CT: model_choices}})
 
         for q in narrow_queries:
-            filters.append({
-                'fquery': {
-                    'query': {
-                        'query_string': {
-                            'query': q
+            if isinstance(q, dict):
+                filters.append(q)
+            else:
+                filters.append({
+                    'fquery': {
+                        'query': {
+                            'query_string': {
+                                'query': q
+                            },
                         },
-                    },
-                    '_cache': True,
-                }
-            })
+                        '_cache': True,
+                    }
+                })
 
         if within is not None:
             from haystack.utils.geo import generate_bounding_box
