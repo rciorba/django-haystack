@@ -520,8 +520,6 @@ class ElasticsearchSearchBackendTestCase(TestCase):
         sb = connections['default'].get_backend()
         sb.update(index, self.sample_objs)
         results = sb.search('*:*')
-        # import ipdb; ipdb.set_trace()
-        # print 
 
     def test_verify_type(self):
         old_ui = connections['elasticsearch'].get_unified_index()
