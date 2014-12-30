@@ -4,11 +4,12 @@ import re
 import shutil
 import threading
 import warnings
+
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.db.models.loading import get_model
-from django.utils.datetime_safe import datetime
 from django.utils import six
+from django.utils.datetime_safe import datetime
 from haystack.backends import BaseEngine, BaseSearchBackend, BaseSearchQuery, log_query, EmptyResults
 from haystack.constants import ID, DJANGO_CT, DJANGO_ID
 from haystack.exceptions import MissingDependency, SearchBackendError
@@ -16,6 +17,7 @@ from haystack.inputs import PythonData, Clean, Exact, Raw
 from haystack.models import SearchResult
 from haystack.utils import get_identifier
 from haystack.utils import log as logging
+from haystack.utils import get_model_ct
 
 try:
     import json
@@ -36,14 +38,15 @@ except ImportError:
     raise MissingDependency("The 'whoosh' backend requires the installation of 'Whoosh'. Please refer to the documentation.")
 
 # Bubble up the correct error.
-from whoosh.analysis import StemmingAnalyzer
-from whoosh.fields import Schema, IDLIST, TEXT, KEYWORD, NUMERIC, BOOLEAN, DATETIME, NGRAM, NGRAMWORDS
-from whoosh.fields import ID as WHOOSH_ID
 from whoosh import index
-from whoosh.qparser import QueryParser
+from whoosh.analysis import StemmingAnalyzer
+from whoosh.fields import ID as WHOOSH_ID
+from whoosh.fields import Schema, IDLIST, TEXT, KEYWORD, NUMERIC, BOOLEAN, DATETIME, NGRAM, NGRAMWORDS
 from whoosh.filedb.filestore import FileStorage, RamStorage
+from whoosh.qparser import QueryParser
 from whoosh.searching import ResultsPage
 from whoosh.writing import AsyncWriter
+from whoosh.highlight import HtmlFormatter, highlight as whoosh_highlight, ContextFragmenter
 
 # Handle minimum requirement.
 if not hasattr(whoosh, '__version__') or whoosh.__version__ < (2, 5, 0):
@@ -53,6 +56,15 @@ if not hasattr(whoosh, '__version__') or whoosh.__version__ < (2, 5, 0):
 DATETIME_REGEX = re.compile('^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})T(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})(\.\d{3,6}Z?)?$')
 LOCALS = threading.local()
 LOCALS.RAM_STORE = None
+
+
+class WhooshHtmlFormatter(HtmlFormatter):
+    """
+    This is a HtmlFormatter simpler than the whoosh.HtmlFormatter.
+    We use it to have consistent results across backends. Specifically,
+    Solr, Xapian and Elasticsearch are using this formatting.
+    """
+    template = '<%(tag)s>%(t)s</%(tag)s>'
 
 
 class WhooshSearchBackend(BaseSearchBackend):
@@ -235,7 +247,7 @@ class WhooshSearchBackend(BaseSearchBackend):
                 models_to_delete = []
 
                 for model in models:
-                    models_to_delete.append(u"%s:%s.%s" % (DJANGO_CT, model._meta.app_label, model._meta.module_name))
+                    models_to_delete.append(u"%s:%s" % (DJANGO_CT, get_model_ct(model)))
 
                 self.index.delete_by_query(q=self.parser.parse(u" OR ".join(models_to_delete)))
         except Exception as e:
@@ -359,7 +371,7 @@ class WhooshSearchBackend(BaseSearchBackend):
             limit_to_registered_models = getattr(settings, 'HAYSTACK_LIMIT_TO_REGISTERED_MODELS', True)
 
         if models and len(models):
-            model_choices = sorted(['%s.%s' % (model._meta.app_label, model._meta.module_name) for model in models])
+            model_choices = sorted(get_model_ct(model) for model in models)
         elif limit_to_registered_models:
             # Using narrow queries, limit the results to only models handled
             # with the current routers.
@@ -485,7 +497,7 @@ class WhooshSearchBackend(BaseSearchBackend):
             limit_to_registered_models = getattr(settings, 'HAYSTACK_LIMIT_TO_REGISTERED_MODELS', True)
 
         if models and len(models):
-            model_choices = sorted(['%s.%s' % (model._meta.app_label, model._meta.module_name) for model in models])
+            model_choices = sorted(get_model_ct(model) for model in models)
         elif limit_to_registered_models:
             # Using narrow queries, limit the results to only models handled
             # with the current routers.
@@ -613,13 +625,19 @@ class WhooshSearchBackend(BaseSearchBackend):
                 del(additional_fields[DJANGO_ID])
 
                 if highlight:
-                    from whoosh import analysis
-                    from whoosh.highlight import highlight, ContextFragmenter, UppercaseFormatter
-                    sa = analysis.StemmingAnalyzer()
-                    terms = [term.replace('*', '') for term in query_string.split()]
+                    sa = StemmingAnalyzer()
+                    formatter = WhooshHtmlFormatter('em')
+                    terms = [token.text for token in sa(query_string)]
 
+                    whoosh_result = whoosh_highlight(
+                        additional_fields.get(self.content_field_name),
+                        terms,
+                        sa,
+                        ContextFragmenter(),
+                        formatter
+                    )
                     additional_fields['highlighted'] = {
-                        self.content_field_name: [highlight(additional_fields.get(self.content_field_name), terms, sa, ContextFragmenter(terms), UppercaseFormatter())],
+                        self.content_field_name: [whoosh_result],
                     }
 
                 result = result_class(app_label, model_name, raw_result[DJANGO_ID], score, **additional_fields)

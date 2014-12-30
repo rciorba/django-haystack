@@ -14,16 +14,16 @@ than the JRE and Jetty. It's very performant and has an advanced featureset.
 Haystack suggests using Solr 3.5+, though it's possible to get it working on
 Solr 1.4 with a little effort. Installation is relatively simple::
 
-    curl -O https://archive.apache.org/dist/lucene/solr/3.5.0/apache-solr-3.5.0.tgz
-    tar xvzf apache-solr-3.5.0.tgz
-    cd apache-solr-3.5.0
+    curl -LO https://archive.apache.org/dist/lucene/solr/4.10.2/solr-4.10.2.tgz
+    tar xvzf solr-4.10.2.tgz
+    cd solr-4.10.2
     cd example
     java -jar start.jar
 
 You'll need to revise your schema. You can generate this from your application
 (once Haystack is installed and setup) by running
 ``./manage.py build_solr_schema``. Take the output from that command and place
-it in ``apache-solr-3.5.0/example/solr/conf/schema.xml``. Then restart Solr.
+it in ``solr-4.10.2/example/solr/collection1/conf/schema.xml``. Then restart Solr.
 
 .. note::
     ``build_solr_schema`` uses a template to generate ``schema.xml``. Haystack
@@ -196,19 +196,22 @@ Official Download Location: http://xapian.org/download
 Xapian is written in C++ so it requires compilation (unless your OS has a
 package for it). Installation looks like::
 
-    curl -O http://oligarchy.co.uk/xapian/1.0.11/xapian-core-1.0.11.tar.gz
-    curl -O http://oligarchy.co.uk/xapian/1.0.11/xapian-bindings-1.0.11.tar.gz
+    curl -O http://oligarchy.co.uk/xapian/1.2.18/xapian-core-1.2.18.tar.xz
+    curl -O http://oligarchy.co.uk/xapian/1.2.18/xapian-bindings-1.2.18.tar.xz
 
-    tar xvzf xapian-core-1.0.11.tar.gz
-    tar xvzf xapian-bindings-1.0.11.tar.gz
+    unxz xapian-core-1.2.18.tar.xz
+    unxz xapian-bindings-1.2.18.tar.xz
 
-    cd xapian-core-1.0.11
+    tar xvf xapian-core-1.2.18.tar
+    tar xvf xapian-bindings-1.2.18.tar
+
+    cd xapian-core-1.2.18
     ./configure
     make
     sudo make install
 
     cd ..
-    cd xapian-bindings-1.0.11
+    cd xapian-bindings-1.2.18
     ./configure
     make
     sudo make install
