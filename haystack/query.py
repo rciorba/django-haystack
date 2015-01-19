@@ -283,6 +283,12 @@ class SearchQuerySet(object):
         """Returns an empty result list for the query."""
         return self._clone(klass=EmptySearchQuerySet)
 
+    def es_raw_filter(self, *args, **kwargs):
+        """ES ONLY! Narrows the search with a raw filter."""
+        clone = self._clone()
+        clone.query.add_raw_filter(*args, **kwargs)
+        return clone
+
     def filter(self, *args, **kwargs):
         """Narrows the search based on certain attributes and the default operator."""
         if DEFAULT_OPERATOR == 'OR':

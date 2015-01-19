@@ -251,7 +251,7 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
                             narrow_queries=None, spelling_query=None,
                             within=None, dwithin=None, distance_point=None,
                             models=None, limit_to_registered_models=None,
-                            result_class=None):
+                            result_class=None, raw_filter=tuple()):
         index = haystack.connections[self.connection_alias].get_unified_index()
         content_field = index.document_field
         boosted_fields = set(
@@ -411,6 +411,9 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
 
         if len(model_choices) > 0:
             filters.append({"terms": {DJANGO_CT: model_choices}})
+
+        for raw in raw_filter:
+            filters.append(raw)
 
         for q in narrow_queries:
             filters.append({
@@ -914,6 +917,9 @@ class ElasticsearchSearchQuery(BaseSearchQuery):
 
         if self.within:
             search_kwargs['within'] = self.within
+
+        if self._raw_filter:
+            search_kwargs['raw_filter'] = self._raw_filter
 
         if spelling_query:
             search_kwargs['spelling_query'] = spelling_query
